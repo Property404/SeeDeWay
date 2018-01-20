@@ -79,7 +79,7 @@ implements SensorEventListener{
         super.onResume();
 
         // for the system's orientation sensor registered listeners
-        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),
                 SensorManager.SENSOR_DELAY_GAME);
     }
     @Override
@@ -96,7 +96,10 @@ implements SensorEventListener{
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        String msg = sensorEvent.values[0] + ":";
+        String msg=":";
+        for(int i=0;i<sensorEvent.values.length;i++) {
+            msg += sensorEvent.values[i] + ":";
+        }
         rotationView.setText(msg);
     }
 
