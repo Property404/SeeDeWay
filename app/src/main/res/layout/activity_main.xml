@@ -7,7 +7,7 @@
         android:id="@+id/position"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="position" />
+        android:text="position." />
 
     <TextView
         android:id="@+id/orientation"
