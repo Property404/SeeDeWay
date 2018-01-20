@@ -1,6 +1,8 @@
 package com.example.tareg.seedeway;
 
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.provider.Settings;
@@ -10,22 +12,38 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements LocationListener {
-    TextView positionView;
+    private TextView positionView;
+    private SensorManager mSensorManager;
+    private Sensor mSensor;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         positionView = findViewById(R.id.position);
+        try {
+            mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        }catch(Exception e){
+            Toast.makeText(this, e.toString(), Toast.LENGTH_LONG).show();
+        }
+
+        requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0,
+                locationListener);
     }
 
     @Override
     public void onLocationChanged(Location location) {
+        try {
+            String msg = location.getLatitude()
+                    + "/" + location.getLongitude();
 
-        String msg = location.getLatitude()
-                + "/" + location.getLongitude();
+            positionView.setText(msg);
 
-        positionView.setText(msg);
+        }catch(Exception e){
+            Toast.makeText(this, e.toString(), Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
