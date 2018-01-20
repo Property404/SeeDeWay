@@ -18,12 +18,21 @@ package com.example.tareg.seedeway;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.RectShape;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -37,6 +46,28 @@ import java.io.IOException;
  * Implementation is based directly on the documentation at
  * http://developer.android.com/guide/topics/media/camera.html
  */
+
+ class DrawView extends View {
+    Paint paint = new Paint();
+
+    public DrawView(Context context) {
+        super(context);
+    }
+
+    @Override
+    public void onDraw(Canvas canvas) {
+        paint.setColor(Color.BLACK);
+        paint.setStrokeWidth(3);
+        canvas.drawRect(30, 30, 80, 80, paint);
+        paint.setStrokeWidth(0);
+        paint.setColor(Color.CYAN);
+        canvas.drawRect(33, 60, 77, 77, paint );
+        paint.setColor(Color.YELLOW);
+        canvas.drawRect(33, 33, 77, 60, paint );
+
+    }
+
+}
 public class CamActivity extends Activity {
 
     private static final String TAG = "CameraPreview";
@@ -48,6 +79,8 @@ public class CamActivity extends Activity {
 
     private CameraPreview mPreview;
     private Camera mCamera;
+    Paint mPaint;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +107,11 @@ public class CamActivity extends Activity {
             mPreview = new CameraPreview(this, mCamera, cameraInfo, displayRotation);
             FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
             preview.addView(mPreview);
+            DrawView view = new DrawView(this);
+            view.setBackgroundColor(Color.TRANSPARENT);
+            preview.addView(view);
         }
+
     }
 
     @Override
