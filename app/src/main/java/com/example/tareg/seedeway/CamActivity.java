@@ -36,18 +36,20 @@ import android.support.v4.content.PermissionChecker;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import java.util.Locale;
 
 
 // The Beacon of light
  class BeaconView extends View {
     private Paint paint = new Paint();
     private float mHorizontal;
-    private final int BARS = 19;
-    private final float WIDTH = 5;
+    private final int BARS = 15;
+    private final float WIDTH = 9;
     private float HEIGHT = 500;
     public BeaconView(Context context){
-        super(context);
         this(context, 0);
     }
     public BeaconView(Context context, float horizontal) {
@@ -69,7 +71,7 @@ import android.widget.Toast;
         paint.setColor(Color.WHITE);
         for(int i=0;i<BARS;i++){
 
-            paint.setAlpha(255-12*Math.abs(BARS/2-i));
+            paint.setAlpha(200-12*Math.abs(BARS/2-i));
 
             canvas.drawRect(mHorizontal+(i-1)*(WIDTH), 0, WIDTH*i+mHorizontal, HEIGHT, paint );
 
@@ -92,14 +94,22 @@ public class CamActivity extends Activity implements SensorEventListener{
     private FrameLayout preview;
     private LocationManager locationManager;
     LocationListener locationListener;
-    float azimut;
+    float azimuth;
+    float pitch;
+    float roll;
+    double latitude;
+    double longitude;
+    double altitude;
     private SensorManager mSensorManager;
+    TextView indicatorView;
     Sensor accelerometer;
     Sensor magnetometer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+
 
         // Open an instance of the first camera and retrieve its info.
         mCamera = getCameraInstance(CAMERA_ID);
@@ -126,6 +136,7 @@ public class CamActivity extends Activity implements SensorEventListener{
             BeaconView view = new BeaconView(this, 0);
             view.setBackgroundColor(Color.TRANSPARENT);
             preview.addView(view);
+            addIndicator();
         }
 
         // Location nonsense
@@ -160,8 +171,9 @@ public class CamActivity extends Activity implements SensorEventListener{
 
     @Override
     public void onResume(){
+        super.onResume();
         mSensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
-        mSensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI);
+       mSensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI);
     }
 
     @Override
@@ -176,19 +188,33 @@ public class CamActivity extends Activity implements SensorEventListener{
     float[] mGravity;
     float[] mGeomagnetic;
     public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            mGravity = event.values;
-        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            mGeomagnetic = event.values;
-        if (mGravity != null && mGeomagnetic != null) {
-            float R[] = new float[9];
-            float I[] = new float[9];
-            boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
-            if (success) {
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R, orientation);
-                azimut = orientation[0]; // orientation contains: azimut, pitch and roll
+        try {
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+                mGravity = event.values;
+            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+                mGeomagnetic = event.values;
+            if (mGravity != null && mGeomagnetic != null) {
+                float R[] = new float[9];
+                float I[] = new float[9];
+                boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
+                if (success) {
+                    float orientation[] = new float[3];
+                    SensorManager.getOrientation(R, orientation);
+                    azimuth = orientation[0]; // orientation contains: azimut, pitch and roll
+                    pitch = orientation[1];
+                    roll = orientation[2];
+                    String info = String.format(Locale.ENGLISH,
+                            "%.3f\n%.3f\n%.3f\n\n%.9f\n%.9f\n%.9f",
+                            azimuth, pitch, roll, longitude, latitude, altitude);
+                    adjustBeacon();
+                    indicatorView.setText(
+                            info
+                    );
+
+                }
             }
+        }catch(Exception e){
+            Toast.makeText(this, e.toString(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -205,6 +231,7 @@ public class CamActivity extends Activity implements SensorEventListener{
             // Camera is not available (in use or does not exist)
             Toast.makeText(this, "Camera " + cameraId + " is not available: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
+
         }
         return c; // returns null if camera is unavailable
     }
@@ -221,12 +248,11 @@ public class CamActivity extends Activity implements SensorEventListener{
         @Override
         public void onLocationChanged(Location location) {
             try {
-                String msg = location.getLatitude()
-                        + "/" + location.getLongitude()
-                        + "/" + location.getAltitude();
+                latitude = location.getLatitude();
+                longitude = location.getLongitude();
+                altitude = location.getAltitude();
 
-                if(!location.hasAltitude()){msg+="noalt";}
-                Toast.makeText(getBaseContext(), "!", Toast.LENGTH_LONG).show();
+
             }catch(Exception e){
                 Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
             }
@@ -250,6 +276,40 @@ public class CamActivity extends Activity implements SensorEventListener{
         public void onStatusChanged(String provider, int status, Bundle extras) {
             Toast.makeText(getBaseContext(), "Status changed!" , Toast.LENGTH_SHORT).show();
 
+        }
+    }
+    private void popView() {
+        preview.removeViewAt(preview.getChildCount()-1);
+    }
+    private void adjustBeacon(){
+        try{
+            popView();
+            popView();
+            DisplayMetrics displayMetrics = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+            int width = displayMetrics.widthPixels;
+
+            BeaconView view = new BeaconView(this, width/2);
+            view.setBackgroundColor(Color.TRANSPARENT);
+            preview.addView(view);
+            addIndicator();
+
+        }catch(Exception e){
+            Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
+        }
+
+    }
+
+    private void addIndicator(){
+        try{
+            FrameLayout.LayoutParams lparams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+            indicatorView = new TextView(this);
+            indicatorView.setLayoutParams(lparams);
+            indicatorView.setText("DFDSF");
+            preview.addView(indicatorView);
+        }catch(Exception e){
+            Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
         }
     }
 }
