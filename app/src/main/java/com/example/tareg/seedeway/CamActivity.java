@@ -42,45 +42,6 @@ import android.widget.Toast;
 import java.util.Locale;
 
 
-// The Beacon of light
- class BeaconView extends View {
-    private Paint paint = new Paint();
-    private float mHorizontal;
-    private final int BARS = 15;
-    private final float WIDTH = 9;
-    private float HEIGHT = 500;
-    public BeaconView(Context context){
-        this(context, 0);
-    }
-    public BeaconView(Context context, float horizontal) {
-        super(context);
-        mHorizontal = horizontal;
-
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        ((Activity) getContext()).getWindowManager()
-                .getDefaultDisplay()
-                .getMetrics(displayMetrics);
-        HEIGHT = displayMetrics.heightPixels;
-    }
-
-    @Override
-    public void onDraw(Canvas canvas) {
-        paint.setColor(Color.WHITE);
-        paint.setStrokeWidth(1);
-
-        paint.setColor(Color.WHITE);
-        for(int i=0;i<BARS;i++){
-
-            paint.setAlpha(200-12*Math.abs(BARS/2-i));
-
-            canvas.drawRect(mHorizontal+(i-1)*(WIDTH), 0, WIDTH*i+mHorizontal, HEIGHT, paint );
-
-
-        }
-
-    }
-
-}
 public class CamActivity extends Activity implements SensorEventListener{
 
 
@@ -100,6 +61,12 @@ public class CamActivity extends Activity implements SensorEventListener{
     double latitude;
     double longitude;
     double altitude;
+    double peer_latitude=29.6480567;
+    double peer_longitude=-82.3440538;
+    double radius;
+    double raw_theta;
+    double theta_max;
+    double bar_x;
     private SensorManager mSensorManager;
     TextView indicatorView;
     Sensor accelerometer;
@@ -180,7 +147,7 @@ public class CamActivity extends Activity implements SensorEventListener{
     public void onPause() {
         super.onPause();
         // Stop camera access
-        releaseCamera();
+        //releaseCamera();
         // Stop sensor access
         mSensorManager.unregisterListener(this);
     }
@@ -203,14 +170,8 @@ public class CamActivity extends Activity implements SensorEventListener{
                     azimuth = orientation[0]; // orientation contains: azimut, pitch and roll
                     pitch = orientation[1];
                     roll = orientation[2];
-                    String info = String.format(Locale.ENGLISH,
-                            "%.3f\n%.3f\n%.3f\n\n%.15f\n%.15f\n%.15f",
-                            azimuth, pitch, roll, longitude, latitude, altitude);
                     adjustBeacon();
-                    indicatorView.setText(
-                            info
-                    );
-
+                    updateText();
                 }
             }
         }catch(Exception e){
@@ -218,6 +179,15 @@ public class CamActivity extends Activity implements SensorEventListener{
         }
     }
 
+    public void updateText(){
+        String info = String.format(Locale.ENGLISH,
+                "%.5f\n%.5f\n%.5f\n\n%.15f\n%.15f\n%.15f\n\n%.15f\n%.15f\n\n%.5f\n%.5f",
+                azimuth, pitch, roll, longitude, latitude, altitude, peer_longitude, peer_latitude,
+                radius, raw_theta);
+        indicatorView.setText(
+                info
+        );
+    }
     public void onAccuracyChanged(Sensor sensor, int accuracy) {  }
 
     /**
@@ -251,7 +221,15 @@ public class CamActivity extends Activity implements SensorEventListener{
                 latitude = location.getLatitude();
                 longitude = location.getLongitude();
                 altitude = location.getAltitude();
-
+                radius = Haversine.distance(latitude, longitude, peer_latitude, peer_longitude);
+                double y = Math.sin(Math.toRadians(peer_longitude-longitude))
+                        *Math.cos(Math.toRadians(peer_latitude));
+                double x = Math.cos(Math.toRadians(latitude))*Math.sin(Math.toRadians(peer_latitude))-
+                        Math.sin(Math.toRadians(latitude))*
+                                Math.cos(Math.toRadians(peer_latitude))
+                                *Math.cos(Math.toRadians(peer_longitude-longitude));
+                raw_theta = Math.atan2(y, x);
+                theta_max = Math.atan(radius*2000);
 
             }catch(Exception e){
                 Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
@@ -288,8 +266,9 @@ public class CamActivity extends Activity implements SensorEventListener{
             DisplayMetrics displayMetrics = new DisplayMetrics();
             getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
             int width = displayMetrics.widthPixels;
-
-            BeaconView view = new BeaconView(this, width/2);
+            double theta_relative = -raw_theta + azimuth;
+            double xr =width*(1-theta_relative+theta_max)/(2*theta_max);
+            BeaconView view = new BeaconView(this, (float)xr);
             view.setBackgroundColor(Color.TRANSPARENT);
             preview.addView(view);
             addIndicator();
