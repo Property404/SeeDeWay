@@ -303,8 +303,8 @@ public class CamActivity extends Activity implements SensorEventListener{
             DisplayMetrics displayMetrics = new DisplayMetrics();
             getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
             int width = displayMetrics.widthPixels;
-            double theta_relative = -raw_theta + azimuth;
-            double xr =width*(1-theta_relative+theta_max)/(2*theta_max);
+            double theta_relative = -(raw_theta - azimuth);// Not sure what the sign should be on here
+            double xr =width*(1-(theta_relative+theta_max)/(2*theta_max));
             /*if(bar_x>xr+20){
                 bar_x-=20;
             }else if(bar_x<xr-20){
