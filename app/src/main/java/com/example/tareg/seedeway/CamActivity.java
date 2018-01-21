@@ -19,6 +19,7 @@ import android.Manifest;
 import android.app.Activity;
 import com.loopj.android.http.*;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -33,6 +34,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.content.PermissionChecker;
 import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
@@ -61,9 +63,9 @@ public class CamActivity extends Activity implements SensorEventListener{
     LocationListener locationListener;
 
     // Peer number
-    String peer_number="911";
+    String peer_number="<undefined_peer>";
     // And self
-    String own_number="<undefined>";
+    String own_number="<undefined_host>";
 
     // Position/orientation parameters of the self
     float azimuth;
@@ -152,6 +154,8 @@ public class CamActivity extends Activity implements SensorEventListener{
         accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
+        // Get Peer identity
+        peer_number = PreferenceManager.getDefaultSharedPreferences(this).getString("peer_number", "<unset>");
         // Find peer
         getPeerLocation();
 
@@ -210,8 +214,10 @@ public class CamActivity extends Activity implements SensorEventListener{
 
     public void updateText(){
         String info = String.format(Locale.ENGLISH,
-                "%.5f rad\n%.5f\n%.5f\n\n%.15f deg\n%.15f deg\n%.15f\n\n%.15f\n%.15f\n\n%.5f km\n%.5f rad",
-                azimuth, pitch, roll, longitude, latitude, altitude, peer_longitude, peer_latitude,
+                "%.5f rad\n%.5f\n%.5f\n\n%.15f deg\n%.15f deg\n%.15f\n\n"+
+                        "peer: %s\n%.15f\n%.15f\n\n%.5f km\n%.5f rad",
+                azimuth, pitch, roll, longitude, latitude, altitude,
+                peer_number, peer_longitude, peer_latitude,
                 radius, raw_theta);
         indicatorView.setText(
                 info
@@ -258,7 +264,7 @@ public class CamActivity extends Activity implements SensorEventListener{
                                 Math.cos(Math.toRadians(peer_latitude))
                                 *Math.cos(Math.toRadians(peer_longitude-longitude));
                 raw_theta = Math.atan2(y, x);
-                theta_max = Math.atan(radius*2000);
+                theta_max = Math.atan(radius*4000);
                 getPeerLocation();
                 sendLocation();
 
@@ -297,19 +303,14 @@ public class CamActivity extends Activity implements SensorEventListener{
             DisplayMetrics displayMetrics = new DisplayMetrics();
             getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
             int width = displayMetrics.widthPixels;
-            double theta_relative = -raw_theta + azimuth;
-            double xr =width*(1-theta_relative+theta_max)/(2*theta_max);
-            if(bar_x>xr+10){
-                bar_x-=10;
-            }else if(bar_x<xr-10){
-                bar_x+=10;
-            }else{
-                if(bar_x>xr+1){
-                    bar_x-=1;
-                }else if(bar_x<xr-1) {
-                    bar_x += 1;
-                }
-            }
+            double theta_relative = raw_theta - azimuth;
+            double xr =width*(1-((theta_relative+theta_max)/(2*theta_max)));
+            /*if(bar_x>xr+20){
+                bar_x-=20;
+            }else if(bar_x<xr-20){
+                bar_x+=20;
+            }else{*/
+                bar_x = (float)xr;
             BeaconView view = new BeaconView(this, bar_x);
             view.setBackgroundColor(Color.TRANSPARENT);
             preview.addView(view);
@@ -394,6 +395,11 @@ public class CamActivity extends Activity implements SensorEventListener{
                 // called when request is retried
             }
         });
+    }
+
+    public void editNumber(View view){
+        Intent intent = new Intent(this, NumberInputActivity.class);
+        startActivity(intent);
     }
 }
 

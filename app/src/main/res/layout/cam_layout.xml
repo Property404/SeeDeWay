@@ -1,15 +1,20 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/camera_preview"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:layout_weight="1">
-    <View
-        android:id="@+id/drawable_surface"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        />
-    <TextView
+    android:layout_weight="1"
+    tools:context=".CamActivity">
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/floatingActionButton"
+        android:clickable="true"
+        android:focusable="true"
+        android:onClick="editNumber"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/indicator"/>
+        android:layout_gravity="bottom|end"
+        app:srcCompat="@android:drawable/ic_menu_edit" />
+
 </FrameLayout>
