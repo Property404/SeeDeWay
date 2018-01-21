@@ -204,7 +204,7 @@ public class CamActivity extends Activity implements SensorEventListener{
                     pitch = orientation[1];
                     roll = orientation[2];
                     String info = String.format(Locale.ENGLISH,
-                            "%.3f\n%.3f\n%.3f\n\n%.9f\n%.9f\n%.9f",
+                            "%.3f\n%.3f\n%.3f\n\n%.15f\n%.15f\n%.15f",
                             azimuth, pitch, roll, longitude, latitude, altitude);
                     adjustBeacon();
                     indicatorView.setText(
