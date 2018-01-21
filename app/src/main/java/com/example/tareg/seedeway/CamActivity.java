@@ -17,6 +17,7 @@
 package com.example.tareg.seedeway;
 import android.Manifest;
 import android.app.Activity;
+import com.loopj.android.http.*;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
@@ -33,6 +34,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.content.PermissionChecker;
+import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -40,6 +42,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Locale;
+import org.json.JSONObject;
+import cz.msebera.android.httpclient.Header;
 
 
 public class CamActivity extends Activity implements SensorEventListener{
@@ -55,18 +59,32 @@ public class CamActivity extends Activity implements SensorEventListener{
     private FrameLayout preview;
     private LocationManager locationManager;
     LocationListener locationListener;
+
+    // Peer number
+    String peer_number="911";
+    // And self
+    String own_number="<undefined>";
+
+    // Position/orientation parameters of the self
     float azimuth;
     float pitch;
     float roll;
     double latitude;
     double longitude;
     double altitude;
-    double peer_latitude=29.6480567;
-    double peer_longitude=-82.3440538;
+
+    // And of the peer
+    double peer_latitude=2.5;
+    double peer_longitude=-2.5;
+
+    // And the joint
     double radius;
     double raw_theta;
     double theta_max;
-    double bar_x;
+
+    // Used for bar animation
+    float bar_x;
+
     private SensorManager mSensorManager;
     TextView indicatorView;
     Sensor accelerometer;
@@ -134,6 +152,17 @@ public class CamActivity extends Activity implements SensorEventListener{
         accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
+        // Find peer
+        getPeerLocation();
+
+        // Identify self
+        TelephonyManager tMgr =(TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE);
+        own_number = tMgr.getLine1Number();
+        if (own_number==null){
+            own_number = "<na>";
+        }
+
+
     }
 
     @Override
@@ -181,7 +210,7 @@ public class CamActivity extends Activity implements SensorEventListener{
 
     public void updateText(){
         String info = String.format(Locale.ENGLISH,
-                "%.5f\n%.5f\n%.5f\n\n%.15f\n%.15f\n%.15f\n\n%.15f\n%.15f\n\n%.5f\n%.5f",
+                "%.5f rad\n%.5f\n%.5f\n\n%.15f deg\n%.15f deg\n%.15f\n\n%.15f\n%.15f\n\n%.5f km\n%.5f rad",
                 azimuth, pitch, roll, longitude, latitude, altitude, peer_longitude, peer_latitude,
                 radius, raw_theta);
         indicatorView.setText(
@@ -230,6 +259,8 @@ public class CamActivity extends Activity implements SensorEventListener{
                                 *Math.cos(Math.toRadians(peer_longitude-longitude));
                 raw_theta = Math.atan2(y, x);
                 theta_max = Math.atan(radius*2000);
+                getPeerLocation();
+                sendLocation();
 
             }catch(Exception e){
                 Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
@@ -268,7 +299,18 @@ public class CamActivity extends Activity implements SensorEventListener{
             int width = displayMetrics.widthPixels;
             double theta_relative = -raw_theta + azimuth;
             double xr =width*(1-theta_relative+theta_max)/(2*theta_max);
-            BeaconView view = new BeaconView(this, (float)xr);
+            if(bar_x>xr+10){
+                bar_x-=10;
+            }else if(bar_x<xr-10){
+                bar_x+=10;
+            }else{
+                if(bar_x>xr+1){
+                    bar_x-=1;
+                }else if(bar_x<xr-1) {
+                    bar_x += 1;
+                }
+            }
+            BeaconView view = new BeaconView(this, bar_x);
             view.setBackgroundColor(Color.TRANSPARENT);
             preview.addView(view);
             addIndicator();
@@ -285,11 +327,73 @@ public class CamActivity extends Activity implements SensorEventListener{
                     FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
             indicatorView = new TextView(this);
             indicatorView.setLayoutParams(lparams);
-            indicatorView.setText("DFDSF");
             preview.addView(indicatorView);
         }catch(Exception e){
             Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void sendLocation(){
+        AsyncHttpClient client = new AsyncHttpClient();
+        RequestParams params = new RequestParams();
+        params.put("number", own_number);
+        params.put("latitude", latitude);
+        params.put("longitude", longitude);
+        client.post("http://138.68.251.123/mainPage/", params, new AsyncHttpResponseHandler() {
+
+            @Override
+            public void onStart() {
+                // called before request is started
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, byte[] response) {
+            }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, byte[] errorResponse, Throwable e) {
+                Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onRetry(int retryNo) {
+                // called when request is retried
+            }
+        });
+    }
+    private void getPeerLocation(){
+        AsyncHttpClient client = new AsyncHttpClient();
+        RequestParams params = new RequestParams();
+        params.put("number", peer_number);
+        client.get("http://138.68.251.123/mainPage", params, new AsyncHttpResponseHandler() {
+
+            @Override
+            public void onStart() {
+                // called before request is started
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, byte[] response) {
+                try {
+                    String resp = new String(response, "UTF-8");
+                    JSONObject json = new JSONObject(resp);
+                    peer_latitude = json.getDouble("latitude");
+                    peer_longitude = json.getDouble("longitude");
+                }catch(Exception e){
+                    Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, byte[] errorResponse, Throwable e) {
+                Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onRetry(int retryNo) {
+                // called when request is retried
+            }
+        });
     }
 }
 
